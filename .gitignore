@@ -3,8 +3,6 @@
 
 \.vs/VCOM/v15/
 
-*.vcxproj
-
 *.log
 
 *.obj
