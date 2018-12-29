@@ -61,6 +61,8 @@ def main():
     # Predicts what the processed image is
     predictions = model.predict(processedImage)
 
+    print(predictions)
+
     label, label_index = getLabel(label_binarizer, predictions)
 
     # Formats the label (label: percentage) and puts it on the original image

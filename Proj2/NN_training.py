@@ -55,21 +55,15 @@ def modelDefinition(label_binarizer):
     model = Sequential()
 
     # Convolutional Neural Network
-    model.add( Conv2D(32, (3, 3), input_shape=(32,32,3)) )
+    model.add( Conv2D(64, (3, 3), input_shape=(32,32,3)) )
     model.add( Activation("relu") )
 
     model.add( Conv2D(32, (3, 3)) )
     model.add( Activation("relu") )
 
-    model.add( Conv2D(64, (3, 3)) )
-    model.add( Activation("relu") )
-
     model.add( Flatten() )
-    model.add( Dense(64) )
-    model.add( Activation('relu') )
-    model.add( Dropout(0.5) )
     model.add( Dense(len(label_binarizer.classes_)) )
-    model.add( Activation('sigmoid') )
+    model.add( Activation('softmax') )
 
     return model
 
