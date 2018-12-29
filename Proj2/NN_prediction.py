@@ -36,9 +36,7 @@ def processImage(image):
 
     image = image.astype("float") / 255.0 # raw pixel from [0, 255] to [0, 1]
 
-    # Not a CNN, so we need to flatten the image before adding batch dimensions
-    image = image.flatten()
-    image = image.reshape((1, image.shape[0])) # 1-D array with image.size positions
+    image = image.reshape((1, image.shape[0], image.shape[1], image.shape[2])) # 1-D array with dimension 4
 
     return image
 

@@ -5,8 +5,9 @@ from sklearn.preprocessing import LabelBinarizer
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report
 from keras.models import Sequential
-from keras.layers.core import Dense
-from keras.layers import Dropout
+from keras.layers.normalization import BatchNormalization
+from keras.layers.convolutional import Conv2D, MaxPooling2D
+from keras.layers.core import Dense, Activation, Flatten, Dropout
 from keras.optimizers import SGD
 from imutils import paths
 import matplotlib.pyplot as plt
@@ -39,7 +40,7 @@ def loadImages():
         counter = counter + 1
 
         image = cv.imread(path)
-        image = cv.resize(image, (32, 32)).flatten()
+        image = cv.resize(image, (32, 32))
         data.append(image)
  
         label = path.split(os.path.sep)[-2]
@@ -51,13 +52,24 @@ def loadImages():
     return data, labels
 
 def modelDefinition(label_binarizer):
-    # Multilayer percetron model
     model = Sequential()
 
-    model.add( Dropout(0.2, input_shape=(3072,)) )
-    model.add( Dense(1024, activation="sigmoid" ) )
-    model.add( Dense(512, activation="sigmoid") )
-    model.add( Dense(len(label_binarizer.classes_), activation="softmax") )
+    # Convolutional Neural Network
+    model.add( Conv2D(32, (3, 3), input_shape=(32,32,3)) )
+    model.add( Activation("relu") )
+
+    model.add( Conv2D(32, (3, 3)) )
+    model.add( Activation("relu") )
+
+    model.add( Conv2D(64, (3, 3)) )
+    model.add( Activation("relu") )
+
+    model.add( Flatten() )
+    model.add( Dense(64) )
+    model.add( Activation('relu') )
+    model.add( Dropout(0.5) )
+    model.add( Dense(len(label_binarizer.classes_)) )
+    model.add( Activation('sigmoid') )
 
     return model
 
@@ -81,9 +93,9 @@ def main():
     data, labels = loadImages()
 
     # Split data and labels between 4 arrays
-    # 75% for training and 25% for testing
+    # 100% for training and 0% for testing
     # scikit-learn -> train_test_split
-    (X_train, X_test, y_train, y_test) = train_test_split( data, labels, test_size=0.25, random_state=42 )
+    (X_train, X_test, y_train, y_test) = train_test_split( data, labels, test_size=0.15, random_state=42 )
 
     # Keras assumes that labels are encoded as integers and performs
     # one-hot encoding on each label, representing them as vectors
@@ -101,7 +113,7 @@ def main():
     # Momentum -> Parameter that accelerates SGD in the relevant direction and dampens oscillations
     # nesterov -> Whether to apply nesterov momentum
     sgd = SGD( lr=MODEL_LEARNING_RATE, decay=1e-6, momentum=0.9, nesterov=True )
-    model.compile( loss="categorical_crossentropy", optimizer=sgd, metrics=["accuracy"])
+    model.compile( loss="categorical_crossentropy", optimizer="adadelta", metrics=["accuracy"])
 
     print("[INFO] training neural network")
     fit_model = model.fit(X_train, y_train, validation_data=(X_test, y_test), epochs=EPOCHS )
