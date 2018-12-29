@@ -6,11 +6,11 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report
 from keras.models import Sequential
 from keras.layers.core import Dense
+from keras.layers import Dropout
 from keras.optimizers import SGD
 from imutils import paths
 import matplotlib.pyplot as plt
 import numpy as np
-import argparse
 import random
 import pickle
 import cv2 as cv
@@ -22,7 +22,7 @@ OUTPUT_BIN = "nn_output/label_binarizer.pickle"
 OUTPUT_PLOT = "nn_output/plot.png"
 
 MODEL_LEARNING_RATE = 0.01
-EPOCHS = 80
+EPOCHS = 5 # One epoch consists of one full training cycle on the training set.
 
 def loadImages():
     data = []
@@ -54,8 +54,10 @@ def modelDefinition(label_binarizer):
     # Multilayer percetron model
     model = Sequential()
 
-    model.add( Dense(64, input_shape=(3072,), activation="softmax") )
-    model.add( Dense(len(label_binarizer.classes_), activation="softmax"))
+    model.add( Dropout(0.2, input_shape=(3072,)) )
+    model.add( Dense(1024, activation="sigmoid" ) )
+    model.add( Dense(512, activation="sigmoid") )
+    model.add( Dense(len(label_binarizer.classes_), activation="softmax") )
 
     return model
 
@@ -79,9 +81,9 @@ def main():
     data, labels = loadImages()
 
     # Split data and labels between 4 arrays
-    # 85% for training and 15% for testing
+    # 75% for training and 25% for testing
     # scikit-learn -> train_test_split
-    (X_train, X_test, y_train, y_test) = train_test_split( data, labels, test_size=0.15, random_state=42 )
+    (X_train, X_test, y_train, y_test) = train_test_split( data, labels, test_size=0.25, random_state=42 )
 
     # Keras assumes that labels are encoded as integers and performs
     # one-hot encoding on each label, representing them as vectors
@@ -99,7 +101,7 @@ def main():
     # Momentum -> Parameter that accelerates SGD in the relevant direction and dampens oscillations
     # nesterov -> Whether to apply nesterov momentum
     sgd = SGD( lr=MODEL_LEARNING_RATE, decay=1e-6, momentum=0.9, nesterov=True )
-    model.compile( loss="mse", optimizer=sgd, metrics=["accuracy"])
+    model.compile( loss="categorical_crossentropy", optimizer=sgd, metrics=["accuracy"])
 
     print("[INFO] training neural network")
     fit_model = model.fit(X_train, y_train, validation_data=(X_test, y_test), epochs=EPOCHS )
