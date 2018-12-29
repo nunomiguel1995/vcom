@@ -9,6 +9,8 @@ from keras.layers.normalization import BatchNormalization
 from keras.layers.convolutional import Conv2D, MaxPooling2D
 from keras.layers.core import Dense, Activation, Flatten, Dropout
 from keras.optimizers import SGD
+from keras.preprocessing.image import ImageDataGenerator
+from keras import regularizers
 from imutils import paths
 import matplotlib.pyplot as plt
 import numpy as np
@@ -23,7 +25,7 @@ OUTPUT_BIN = "nn_output/label_binarizer.pickle"
 OUTPUT_PLOT = "nn_output/plot.png"
 
 MODEL_LEARNING_RATE = 0.01
-EPOCHS = 5 # One epoch consists of one full training cycle on the training set.
+EPOCHS = 15 # One epoch consists of one full training cycle on the training set.
 
 def loadImages():
     data = []
@@ -55,13 +57,39 @@ def modelDefinition(label_binarizer):
     model = Sequential()
 
     # Convolutional Neural Network
-    model.add( Conv2D(64, (3, 3), input_shape=(32,32,3)) )
-    model.add( Activation("relu") )
+    model.add( Conv2D(32, (3, 3), input_shape=(32,32,3)) )
+    model.add( Activation("sigmoid") )
+    model.add( BatchNormalization())
 
     model.add( Conv2D(32, (3, 3)) )
-    model.add( Activation("relu") )
+    model.add( Activation("sigmoid") )
+    model.add( BatchNormalization())
+    model.add( MaxPooling2D(pool_size=(2,2)) )
+    model.add( Dropout(0.25) )
+
+    model.add( Conv2D(64, (3, 3)) )
+    model.add( Activation("sigmoid") )
+    model.add( BatchNormalization())
+    model.add( Dropout(0.25) )
+
+    model.add( Conv2D(128, (3, 3)) )
+    model.add( Activation("sigmoid") )
+    model.add( BatchNormalization())
+    model.add( MaxPooling2D(pool_size=(2,2)) )    
+    model.add( Dropout(0.25) )
 
     model.add( Flatten() )
+
+    model.add( Dense(512) )    
+    model.add( Activation("sigmoid") )
+    model.add( BatchNormalization())
+    model.add( Dropout(0.5) )
+
+    model.add( Dense(128) )    
+    model.add( Activation("sigmoid") )
+    model.add( BatchNormalization())
+    model.add( Dropout(0.5) )
+
     model.add( Dense(len(label_binarizer.classes_)) )
     model.add( Activation('softmax') )
 
@@ -89,7 +117,7 @@ def main():
     # Split data and labels between 4 arrays
     # 100% for training and 0% for testing
     # scikit-learn -> train_test_split
-    (X_train, X_test, y_train, y_test) = train_test_split( data, labels, test_size=0.15, random_state=42 )
+    (X_train, X_test, y_train, y_test) = train_test_split( data, labels, test_size=0.3, random_state=42 )
 
     # Keras assumes that labels are encoded as integers and performs
     # one-hot encoding on each label, representing them as vectors
@@ -99,6 +127,17 @@ def main():
     y_train = label_binarizer.fit_transform(y_train) # Finds all unique class labels in y_train and transforms them into one-hot encoded labels
     y_test = label_binarizer.transform(y_test) # Performs just the one-hot encoded step (unique set of classes already determined before)
 
+    # Image augmentation allows us to construct “additional” training data from our existing training data 
+    # by randomly rotating, shifting, shearing, zooming, and flipping.
+    datagen = ImageDataGenerator(
+        rotation_range=30, 
+        width_shift_range=0.1, 
+        height_shift_range=0.1,  
+        shear_range=0.2, 
+        zoom_range=0.2, 
+        horizontal_flip=True, 
+        fill_mode="nearest")
+
     print("[INFO] defining model")
     # Model definition
     model = modelDefinition(label_binarizer) # Try to make it better
@@ -106,11 +145,13 @@ def main():
     # Decay -> Learning rate decay over each update
     # Momentum -> Parameter that accelerates SGD in the relevant direction and dampens oscillations
     # nesterov -> Whether to apply nesterov momentum
-    sgd = SGD( lr=MODEL_LEARNING_RATE, decay=1e-6, momentum=0.9, nesterov=True )
-    model.compile( loss="categorical_crossentropy", optimizer="adadelta", metrics=["accuracy"])
+    # sgd = SGD( lr=MODEL_LEARNING_RATE, decay=1e-6, momentum=0.9, nesterov=True )
+    model.compile( loss="categorical_crossentropy", optimizer="adam", metrics=["accuracy"])
 
     print("[INFO] training neural network")
-    fit_model = model.fit(X_train, y_train, validation_data=(X_test, y_test), epochs=EPOCHS )
+    #fit_model = model.fit(X_train, y_train, validation_data=(X_test, y_test), epochs=EPOCHS )
+    fit_model = model.fit_generator(datagen.flow(X_train, y_train, batch_size=32),
+                                    validation_data=(X_test, y_test), steps_per_epoch=len(X_train) / 5, epochs=EPOCHS)
 
     # Model evaluation
     print("[INFO] evaluating network")
