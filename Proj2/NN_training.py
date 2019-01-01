@@ -4,13 +4,16 @@ matplotlib.use("Agg")
 from sklearn.preprocessing import LabelBinarizer
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report
+from sklearn.metrics import confusion_matrix
 from keras.models import Sequential
 from keras.layers.normalization import BatchNormalization
 from keras.layers.convolutional import Conv2D, MaxPooling2D
 from keras.layers.core import Dense, Activation, Flatten, Dropout
 from keras.optimizers import SGD
+from keras.callbacks import EarlyStopping
 from keras.preprocessing.image import ImageDataGenerator
-from keras import regularizers
+from keras.utils import Sequence
+from keras.regularizers import l2
 from imutils import paths
 import matplotlib.pyplot as plt
 import numpy as np
@@ -25,7 +28,7 @@ OUTPUT_BIN = "nn_output/label_binarizer.pickle"
 OUTPUT_PLOT = "nn_output/plot.png"
 
 MODEL_LEARNING_RATE = 0.01
-EPOCHS = 15 # One epoch consists of one full training cycle on the training set.
+EPOCHS = 100 # One epoch consists of one full training cycle on the training set.
 
 def loadImages():
     data = []
@@ -42,7 +45,7 @@ def loadImages():
         counter = counter + 1
 
         image = cv.imread(path)
-        image = cv.resize(image, (32, 32))
+        image = cv.resize(image, (64, 64))
         data.append(image)
  
         label = path.split(os.path.sep)[-2]
@@ -57,47 +60,41 @@ def modelDefinition(label_binarizer):
     model = Sequential()
 
     # Convolutional Neural Network
-    model.add( Conv2D(32, (3, 3), input_shape=(32,32,3)) )
-    model.add( Activation("sigmoid") )
-    model.add( BatchNormalization())
+    model.add(Conv2D(64, (3, 3), kernel_regularizer=l2(0.0005), padding="same", input_shape=(64,64,3), activation="relu") )
+    model.add(BatchNormalization(axis=3) )
+    model.add(MaxPooling2D(pool_size=(3,3)) )
+    model.add(Dropout(0.25) )
+    
+    model.add(Conv2D(64, (3, 3), padding="same", activation="relu") )
+    model.add(BatchNormalization(axis=3))
 
-    model.add( Conv2D(32, (3, 3)) )
-    model.add( Activation("sigmoid") )
-    model.add( BatchNormalization())
-    model.add( MaxPooling2D(pool_size=(2,2)) )
-    model.add( Dropout(0.25) )
+    model.add(Conv2D(64, (3, 3), padding="same", activation="relu"))
+    model.add(BatchNormalization(axis=3))
+    model.add(MaxPooling2D(pool_size=(2, 2)))
+    model.add(Dropout(0.25))
 
-    model.add( Conv2D(64, (3, 3)) )
-    model.add( Activation("sigmoid") )
-    model.add( BatchNormalization())
-    model.add( Dropout(0.25) )
+    model.add(Conv2D(128, (3, 3), padding="same", activation="relu"))
+    model.add(BatchNormalization(axis=3))
+    
+    '''
+    model.add(Conv2D(128, (3, 3), padding="same", activation="relu"))
+    model.add(BatchNormalization(axis=3))
+    model.add(MaxPooling2D(pool_size=(2, 2)))
+    model.add(Dropout(0.25))
+    '''
 
-    model.add( Conv2D(128, (3, 3)) )
-    model.add( Activation("sigmoid") )
-    model.add( BatchNormalization())
-    model.add( MaxPooling2D(pool_size=(2,2)) )    
-    model.add( Dropout(0.25) )
+    model.add(Flatten())
 
-    model.add( Flatten() )
-
-    model.add( Dense(512) )    
-    model.add( Activation("sigmoid") )
-    model.add( BatchNormalization())
-    model.add( Dropout(0.5) )
-
-    model.add( Dense(128) )    
-    model.add( Activation("sigmoid") )
-    model.add( BatchNormalization())
-    model.add( Dropout(0.5) )
-
-    model.add( Dense(len(label_binarizer.classes_)) )
-    model.add( Activation('softmax') )
+    model.add(Dense(32, activation="relu"))
+    model.add(Dropout(0.5))
+    
+    model.add(Dense(len(label_binarizer.classes_), activation="softmax") )
 
     return model
 
 def trainingPlot(model):
     # plot the training loss and accuracy
-    N = np.arange(0, EPOCHS)
+    N = np.arange(0, len(model.history['loss']))
     plt.style.use("ggplot")
     plt.figure()
     plt.plot(N, model.history["loss"], label="train_err")
@@ -109,6 +106,30 @@ def trainingPlot(model):
     plt.ylabel("Error/Accuracy")
     plt.legend()
     plt.savefig( OUTPUT_PLOT )
+
+def save_fig(fig_id, tight_layout=True):
+    path = "nn_output"
+    if not os.path.exists(path):
+        os.makedirs(path)
+    path = os.path.join(path, fig_id + ".png")
+    print("Saving figure", fig_id)
+    if tight_layout:
+        plt.tight_layout()
+    plt.savefig(path, format='png', dpi=300)
+
+def plot_confusion_matrix(matrix):
+    fig = plt.figure(figsize=(8,8))
+    ax = fig.add_subplot(111)
+    cax = ax.matshow(matrix)
+    fig.colorbar(cax)
+    save_fig("confusion_matrix_plot", tight_layout=False)
+
+def getLabel(label_binarizer, predictions):
+    # Returns the indices of the maximum values along an axis.
+    label_index = predictions.argmax(axis=1)[0]
+    label = label_binarizer.classes_[label_index] # Returns the label according to prediction
+
+    return label, label_index
 
 def main():
     print("[INFO] loading images for training")
@@ -129,14 +150,26 @@ def main():
 
     # Image augmentation allows us to construct “additional” training data from our existing training data 
     # by randomly rotating, shifting, shearing, zooming, and flipping.
-    datagen = ImageDataGenerator(
-        rotation_range=30, 
-        width_shift_range=0.1, 
-        height_shift_range=0.1,  
+    train_datagen = ImageDataGenerator(
+        rotation_range=45, 
+        width_shift_range=0.2, 
+        height_shift_range=0.2, 
         shear_range=0.2, 
         zoom_range=0.2, 
-        horizontal_flip=True, 
+        horizontal_flip=True,
         fill_mode="nearest")
+
+    val_datagen = ImageDataGenerator(
+        rotation_range=45, 
+        width_shift_range=0.2, 
+        height_shift_range=0.2, 
+        shear_range=0.2, 
+        zoom_range=0.2, 
+        horizontal_flip=True,
+        fill_mode="nearest")
+
+    train_datagen.fit(X_train, augment=True, seed=42)
+    val_datagen.fit(X_test, augment=True, seed=42)
 
     print("[INFO] defining model")
     # Model definition
@@ -145,13 +178,14 @@ def main():
     # Decay -> Learning rate decay over each update
     # Momentum -> Parameter that accelerates SGD in the relevant direction and dampens oscillations
     # nesterov -> Whether to apply nesterov momentum
-    # sgd = SGD( lr=MODEL_LEARNING_RATE, decay=1e-6, momentum=0.9, nesterov=True )
+    #sgd = SGD( lr=MODEL_LEARNING_RATE, decay=1e-6, momentum=0.9, nesterov=False )
     model.compile( loss="categorical_crossentropy", optimizer="adam", metrics=["accuracy"])
+
+    callback = EarlyStopping(monitor="val_loss", patience=15, verbose=1)
 
     print("[INFO] training neural network")
     #fit_model = model.fit(X_train, y_train, validation_data=(X_test, y_test), epochs=EPOCHS )
-    fit_model = model.fit_generator(datagen.flow(X_train, y_train, batch_size=32),
-                                    validation_data=(X_test, y_test), steps_per_epoch=len(X_train) / 5, epochs=EPOCHS)
+    fit_model = model.fit_generator(train_datagen.flow(X_train, y_train, batch_size=32), validation_data=val_datagen.flow(X_test, y_test, batch_size=32), validation_steps=len(X_test)/32, steps_per_epoch=len(X_train) / 32, epochs=EPOCHS, callbacks=[callback])
 
     # Model evaluation
     print("[INFO] evaluating network")
@@ -164,6 +198,12 @@ def main():
     # Save model
     print("[INFO] serializing model")
     model.save( OUTPUT_MODEL )
+
+    y_test_confusion = [np.argmax(t) for t in y_test]
+    y_pred_confusion = [np.argmax(t) for t in predictions]
+
+    confusion = confusion_matrix(y_test_confusion, y_pred_confusion)
+    plot_confusion_matrix(confusion)
 
     file = open( OUTPUT_BIN, "wb" )
     file.write( pickle.dumps(label_binarizer) )

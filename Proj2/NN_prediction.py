@@ -32,7 +32,7 @@ def getImagePath():
 
 def processImage(image):
     output = image.copy()
-    image = cv.resize(image, (32, 32))
+    image = cv.resize(image, (64, 64))
 
     image = image.astype("float") / 255.0 # raw pixel from [0, 255] to [0, 1]
 
