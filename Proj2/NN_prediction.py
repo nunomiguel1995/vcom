@@ -32,7 +32,7 @@ def getImagePath():
 
 def processImage(image):
     output = image.copy()
-    image = cv.resize(image, (64, 64))
+    image = cv.resize(image, (32, 32))
 
     image = image.astype("float") / 255.0 # raw pixel from [0, 255] to [0, 1]
 
@@ -61,16 +61,19 @@ def main():
     # Predicts what the processed image is
     predictions = model.predict(processedImage)
 
-    print(predictions)
-
     label, label_index = getLabel(label_binarizer, predictions)
 
-    # Formats the label (label: percentage) and puts it on the original image
-    text = "{}: {:.2f}%".format(label, predictions[0][label_index] * 100)
-    cv.putText(originalImage, text, (10, 30), cv.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+    pred_value = predictions[0][label_index] * 100
 
-    cv.imshow(label, originalImage)
-    cv.waitKey(0)
+    if pred_value < 85:
+        print("Image without monument or bad quality image")
+    else:
+        # Formats the label (label: percentage) and puts it on the original image
+        text = "{}: {:.2f}%".format(label, pred_value)
+        cv.putText(originalImage, text, (10, 30), cv.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+
+        cv.imshow(label, originalImage)
+        cv.waitKey(0)
 
 if __name__ == '__main__':
     main()

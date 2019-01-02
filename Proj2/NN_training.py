@@ -45,7 +45,7 @@ def loadImages():
         counter = counter + 1
 
         image = cv.imread(path)
-        image = cv.resize(image, (64, 64))
+        image = cv.resize(image, (32, 32))
         data.append(image)
  
         label = path.split(os.path.sep)[-2]
@@ -60,34 +60,23 @@ def modelDefinition(label_binarizer):
     model = Sequential()
 
     # Convolutional Neural Network
-    model.add(Conv2D(64, (3, 3), kernel_regularizer=l2(0.0005), padding="same", input_shape=(64,64,3), activation="relu") )
-    model.add(BatchNormalization(axis=3) )
-    model.add(MaxPooling2D(pool_size=(3,3)) )
-    model.add(Dropout(0.25) )
+    model.add(Conv2D(64, (5, 5), input_shape=(32, 32,3), activation="relu") )
     
-    model.add(Conv2D(64, (3, 3), padding="same", activation="relu") )
-    model.add(BatchNormalization(axis=3))
-
-    model.add(Conv2D(64, (3, 3), padding="same", activation="relu"))
-    model.add(BatchNormalization(axis=3))
+    model.add(Conv2D(64, (5, 5), activation="relu") )
     model.add(MaxPooling2D(pool_size=(2, 2)))
-    model.add(Dropout(0.25))
 
-    model.add(Conv2D(128, (3, 3), padding="same", activation="relu"))
-    model.add(BatchNormalization(axis=3))
-    
-    '''
-    model.add(Conv2D(128, (3, 3), padding="same", activation="relu"))
-    model.add(BatchNormalization(axis=3))
+    model.add(Conv2D(64, (5, 5), padding="same", activation="relu"))
+
+    model.add(Conv2D(64, (5, 5), padding="same", activation="relu"))
     model.add(MaxPooling2D(pool_size=(2, 2)))
-    model.add(Dropout(0.25))
-    '''
+
+    model.add(Conv2D(64, (5, 5), padding="same", activation="relu"))
+
+    model.add(Conv2D(64, (5, 5), padding="same", activation="relu"))
+    model.add(MaxPooling2D(pool_size=(2, 2)))
 
     model.add(Flatten())
 
-    model.add(Dense(32, activation="relu"))
-    model.add(Dropout(0.5))
-    
     model.add(Dense(len(label_binarizer.classes_), activation="softmax") )
 
     return model
@@ -97,13 +86,11 @@ def trainingPlot(model):
     N = np.arange(0, len(model.history['loss']))
     plt.style.use("ggplot")
     plt.figure()
-    plt.plot(N, model.history["loss"], label="train_err")
-    plt.plot(N, model.history["val_loss"], label="val_err")
-    plt.plot(N, model.history["acc"], label="train_acc")
-    plt.plot(N, model.history["val_acc"], label="val_acc")
-    plt.title("Training Error and Accuracy (Simple NN)")
+    plt.plot(N, model.history["acc"], label="Training accuracy")
+    plt.plot(N, model.history["val_acc"], label="Validation accuracy")
+    plt.title("Training and Validation Accuracy (CNN)")
     plt.xlabel("Epoch #")
-    plt.ylabel("Error/Accuracy")
+    plt.ylabel("Accuracy")
     plt.legend()
     plt.savefig( OUTPUT_PLOT )
 
@@ -136,7 +123,7 @@ def main():
     data, labels = loadImages()
 
     # Split data and labels between 4 arrays
-    # 100% for training and 0% for testing
+    # 70% for training and 30% for testing
     # scikit-learn -> train_test_split
     (X_train, X_test, y_train, y_test) = train_test_split( data, labels, test_size=0.3, random_state=42 )
 
@@ -178,10 +165,10 @@ def main():
     # Decay -> Learning rate decay over each update
     # Momentum -> Parameter that accelerates SGD in the relevant direction and dampens oscillations
     # nesterov -> Whether to apply nesterov momentum
-    #sgd = SGD( lr=MODEL_LEARNING_RATE, decay=1e-6, momentum=0.9, nesterov=False )
-    model.compile( loss="categorical_crossentropy", optimizer="adam", metrics=["accuracy"])
+    sgd = SGD( lr=MODEL_LEARNING_RATE, momentum=0.9, nesterov=False )
+    model.compile( loss="categorical_crossentropy", optimizer=sgd , metrics=["accuracy"])
 
-    callback = EarlyStopping(monitor="val_loss", patience=15, verbose=1)
+    callback = EarlyStopping(monitor="val_loss", patience=10, verbose=1)
 
     print("[INFO] training neural network")
     #fit_model = model.fit(X_train, y_train, validation_data=(X_test, y_test), epochs=EPOCHS )
