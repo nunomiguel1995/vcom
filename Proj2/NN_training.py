@@ -15,6 +15,7 @@ from keras.preprocessing.image import ImageDataGenerator
 from keras.utils import Sequence
 from keras.regularizers import l2
 from imutils import paths
+import time
 import matplotlib.pyplot as plt
 import numpy as np
 import random
@@ -60,7 +61,7 @@ def modelDefinition(label_binarizer):
     model = Sequential()
 
     # Convolutional Neural Network
-    model.add(Conv2D(64, (5, 5), input_shape=(32, 32,3), activation="relu") )
+    model.add(Conv2D(64, (5, 5), input_shape=(32, 32, 3), activation="relu") )
     
     model.add(Conv2D(64, (5, 5), activation="relu") )
     model.add(MaxPooling2D(pool_size=(2, 2)))
@@ -119,6 +120,7 @@ def getLabel(label_binarizer, predictions):
     return label, label_index
 
 def main():
+    startTime = time.time()
     print("[INFO] loading images for training")
     data, labels = loadImages()
 
@@ -195,6 +197,10 @@ def main():
     file = open( OUTPUT_BIN, "wb" )
     file.write( pickle.dumps(label_binarizer) )
     file.close()   
+
+    endTime = time.time() - startTime
+
+    print("Process took {:.2f} seconds".format(endTime))
 
 if __name__ == '__main__':
     main()
