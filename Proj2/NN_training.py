@@ -6,6 +6,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report
 from sklearn.metrics import confusion_matrix
 from keras.models import Sequential
+from keras.layers import Input
 from keras.layers.normalization import BatchNormalization
 from keras.layers.convolutional import Conv2D, MaxPooling2D
 from keras.layers.core import Dense, Activation, Flatten, Dropout
@@ -60,26 +61,25 @@ def loadImages():
 def modelDefinition(label_binarizer):
     model = Sequential()
 
+    model.add(Conv2D(64, (5, 5), padding="same", activation="relu", input_shape=(32, 32, 3)) )
+
     # Convolutional Neural Network
-    model.add(Conv2D(64, (5, 5), input_shape=(32, 32, 3), activation="relu") )
-    
-    model.add(Conv2D(64, (5, 5), activation="relu") )
+    model.add(Conv2D(64, (5, 5), padding="same", activation="relu") )
+    model.add(Conv2D(64, (5, 5), padding="same", activation="relu") )
     model.add(MaxPooling2D(pool_size=(2, 2)))
 
     model.add(Conv2D(64, (5, 5), padding="same", activation="relu"))
-
     model.add(Conv2D(64, (5, 5), padding="same", activation="relu"))
     model.add(MaxPooling2D(pool_size=(2, 2)))
 
     model.add(Conv2D(64, (5, 5), padding="same", activation="relu"))
-
     model.add(Conv2D(64, (5, 5), padding="same", activation="relu"))
     model.add(MaxPooling2D(pool_size=(2, 2)))
 
     model.add(Flatten())
 
     model.add(Dense(len(label_binarizer.classes_), activation="softmax") )
-
+    
     return model
 
 def trainingPlot(model):
@@ -170,6 +170,7 @@ def main():
     sgd = SGD( lr=MODEL_LEARNING_RATE, momentum=0.9, nesterov=False )
     model.compile( loss="categorical_crossentropy", optimizer=sgd , metrics=["accuracy"])
 
+    # Instantiating an EarlyStopping callback to ensure that the training ends when val_loss stops improving
     callback = EarlyStopping(monitor="val_loss", patience=10, verbose=1)
 
     print("[INFO] training neural network")
@@ -188,12 +189,15 @@ def main():
     print("[INFO] serializing model")
     model.save( OUTPUT_MODEL )
 
+    # Parsing labels for confusion matrix
     y_test_confusion = [np.argmax(t) for t in y_test]
     y_pred_confusion = [np.argmax(t) for t in predictions]
 
+    # Generating confusion matrix
     confusion = confusion_matrix(y_test_confusion, y_pred_confusion)
     plot_confusion_matrix(confusion)
 
+    # Dumping binarized labels into a .bin file
     file = open( OUTPUT_BIN, "wb" )
     file.write( pickle.dumps(label_binarizer) )
     file.close()   
