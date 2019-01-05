@@ -65,6 +65,7 @@ def main():
 
     pred_value = predictions[0][label_index] * 100
 
+    # Since there is no control class, a threshold had to be defined
     if pred_value < 85:
         print("Image without monument or bad quality image")
     else:
