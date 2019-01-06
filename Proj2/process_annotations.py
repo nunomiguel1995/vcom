@@ -4,6 +4,7 @@ import os
 
 DATASET_ANNOTATIONS = "Dataset/annotations/"
 
+# Returns all the files in the dataset folder and subfolder
 def get_file_list():
     lf = list()
     for path, subdirs, files in os.walk(DATASET_ANNOTATIONS):
@@ -11,11 +12,14 @@ def get_file_list():
     
     return lf
 
+# Processes the annotations to a special format and saves on a text file
+# file_path xmin,ymin,xmax,ymax,class_id
 def read_annotations():
     files = get_file_list()
     with open('annotations.txt', 'w', newline='') as csv_file:
         wr = csv.writer(csv_file, quoting=csv.QUOTE_NONE, delimiter=" ")
 
+        # Iterates over every xml_file
         for xml_file in files:
             print("[LOADING] Parsing file", xml_file)
             tree = ET.parse(xml_file)
