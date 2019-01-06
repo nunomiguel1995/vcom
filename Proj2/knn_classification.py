@@ -10,6 +10,7 @@ from sklearn.model_selection import cross_val_predict
 from sklearn.metrics import confusion_matrix
 from sklearn.model_selection import RandomizedSearchCV
 from sklearn.model_selection import GridSearchCV
+from sklearn.metrics import accuracy_score
 import time
 import glob
 
@@ -106,7 +107,10 @@ def knnModel():
 
     print('calculating classifier...')
 
+    # Create a K-NN model
     model_knn = KNeighborsClassifier(n_neighbors=1, metric="cityblock")
+
+    # Fit the model to the data
     model_knn.fit(X_train, y_train)
 
     acc1 = model_knn.score(X_test, y_test)
@@ -129,8 +133,19 @@ def makePrediction(model):
             prediction = model.predict([image])
             print("The prediction was {}.".format(prediction[0]))
 
+
+def predictTestImages(model):
+    rootdir = "Test_images/*.*"
+    files = glob.glob(rootdir)
+
+    for count in range (0, len(files)):
+        image = openImage(files[count]).flatten()
+        prediction = model.predict([image])
+        print("The prediction of the image {} was {}.".format(files[count], prediction[0]))
+
 def main():
     model = knnModel()
+    predictTestImages(model)
     makePrediction(model)
 
 if __name__ == '__main__':
