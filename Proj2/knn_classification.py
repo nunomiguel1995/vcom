@@ -164,7 +164,7 @@ def predictTestImages(model):
         print("The prediction of the image {} was {}.".format(files[count], prediction[0]))
 
 def main():
-    classes = ['arrabida', 'musica', 'clerigos', 'camara', 'serralves', 'control']
+    classes = ['arrabida', 'camara', 'clerigos', 'control', 'musica', 'serralves']
     model = knnModel(classes)
     predictTestImages(model)
     makePrediction(model)
