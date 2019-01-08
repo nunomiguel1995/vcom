@@ -13,6 +13,7 @@ from sklearn.model_selection import GridSearchCV
 from sklearn.metrics import accuracy_score
 import time
 import glob
+import itertools
 
 # Opens an image, converts it to gray scale and changes its size to 32 x 32 pixels
 def openImage(filename):
@@ -48,17 +49,36 @@ def save_fig(fig_id, tight_layout=True):
         plt.tight_layout()
     plt.savefig(path, format='png', dpi=300)
 
-  # Creates the confusion matrix and saves it in a file  
-def plot_confusion_matrix(matrix):
-    fig = plt.figure(figsize=(8,8))
-    ax = fig.add_subplot(111)
-    cax = ax.matshow(matrix)
-    fig.colorbar(cax)
+
+# Creates a normalized confusion matrix and saves it in a file  
+def plot_confusion_matrix(cm, classes,
+                          title='Confusion matrix',
+                          cmap=plt.cm.Blues):
+
+    cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
+    
+    plt.figure(figsize=(9,9))
+    plt.imshow(cm, interpolation='nearest', cmap=cmap)
+    plt.title(title)
+    plt.colorbar()
+    tick_marks = np.arange(len(classes))
+    plt.xticks(tick_marks, classes, rotation=45)
+    plt.yticks(tick_marks, classes)
+
+    fmt = '.2f'
+    thresh = cm.max() / 2.
+    for i, j in itertools.product(range(cm.shape[0]), range(cm.shape[1])):
+        plt.text(j, i, format(cm[i, j], fmt),
+                 horizontalalignment="center",
+                 color="white" if cm[i, j] > thresh else "black")
+
+    plt.ylabel('True label')
+    plt.xlabel('Predicted label')
     save_fig("confusion_matrix_plot", tight_layout=False)
 
 # Using Grid and Randomized Search, tries to find the hyperparameters that give the best accuracy for the model
 def findBestParams(model, X_train, y_train, X_test, y_test):
-    params = {"n_neighbors": np.arrange(1,25,2),
+    params = {"n_neighbors": np.arange(1,25,2),
 	"metric": ["cityblock", "euclidean"]}
 
     grid1 = GridSearchCV(model, params)
@@ -71,7 +91,7 @@ def findBestParams(model, X_train, y_train, X_test, y_test):
     print("Grid Search best params = {}".format(grid1.best_params_))
     print("Grid Search took {:.2f} seconds".format(time.time() - start))
 
-    grid2 = RandomizedSearchCV(model_knn, params)
+    grid2 = RandomizedSearchCV(model, params)
 
     start = time.time()
     grid2.fit(X_train, y_train)
@@ -81,14 +101,14 @@ def findBestParams(model, X_train, y_train, X_test, y_test):
     print("Randomized Search best params = {}".format(grid2.best_params_))
     print("Randomized Search took {:.2f} seconds".format(time.time() - start))
 
-def loadData():
+def loadData(classes):
     ############### LOADING THE DATA #################
     X = []
     y = []
     print("Loading all the data")
-    paths = ['arrabida', 'musica', 'clerigos', 'camara', 'serralves']
-    for count in range (0, len(paths)):
-        data, labels = loadFileNames(paths[count])
+    paths = ['arrabida', 'musica', 'clerigos', 'camara', 'serralves', 'control']
+    for count in range (0, len(classes)):
+        data, labels = loadFileNames(classes[count])
         X.extend(data)
         y.extend(labels)
 
@@ -101,25 +121,25 @@ def loadData():
     return X_train, X_test, y_train, y_test
 
 # Applies the KNN algorithm to the data loaded
-def knnModel():
+def knnModel(classes):
     ############### TEST WITH KNN CLASSIFIER #################
-    X_train, X_test, y_train, y_test = loadData()
+    X_train, X_test, y_train, y_test = loadData(classes)
 
     print('calculating classifier...')
-
     # Create a K-NN model
     model_knn = KNeighborsClassifier(n_neighbors=1, metric="cityblock")
 
     # Fit the model to the data
     model_knn.fit(X_train, y_train)
 
+    # Calculate accuracy
     acc1 = model_knn.score(X_test, y_test)
     print("Accuracy = {}".format(acc1))
 
-    y_train_pred = cross_val_predict(model_knn, X_train, y_train, cv=3)
+    y_train_pred = model_knn.predict(X_test)
 
-    cm = confusion_matrix(y_train, y_train_pred)
-    plot_confusion_matrix(cm)
+    cm = confusion_matrix(y_test, y_train_pred)
+    plot_confusion_matrix(cm, classes)
 
     return model_knn
 
@@ -144,7 +164,8 @@ def predictTestImages(model):
         print("The prediction of the image {} was {}.".format(files[count], prediction[0]))
 
 def main():
-    model = knnModel()
+    classes = ['arrabida', 'musica', 'clerigos', 'camara', 'serralves', 'control']
+    model = knnModel(classes)
     predictTestImages(model)
     makePrediction(model)
 
