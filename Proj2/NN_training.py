@@ -6,6 +6,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report
 from sklearn.metrics import confusion_matrix
 from keras.models import Sequential
+from keras.models import load_model
 from keras.layers import Input
 from keras.layers.normalization import BatchNormalization
 from keras.layers.convolutional import Conv2D, MaxPooling2D
@@ -17,6 +18,7 @@ from keras.utils import Sequence
 from keras.regularizers import l2
 from imutils import paths
 import time
+import itertools
 import matplotlib.pyplot as plt
 import numpy as np
 import random
@@ -105,11 +107,30 @@ def save_fig(fig_id, tight_layout=True):
         plt.tight_layout()
     plt.savefig(path, format='png', dpi=300)
 
-def plot_confusion_matrix(matrix):
-    fig = plt.figure(figsize=(8,8))
-    ax = fig.add_subplot(111)
-    cax = ax.matshow(matrix)
-    fig.colorbar(cax)
+# Creates a normalized confusion matrix and saves it in a file  
+def plot_confusion_matrix(cm, classes,
+                          title='Confusion matrix',
+                          cmap=plt.cm.Blues):
+
+    cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
+    
+    plt.figure(figsize=(9,9))
+    plt.imshow(cm, interpolation='nearest', cmap=cmap)
+    plt.title(title)
+    plt.colorbar()
+    tick_marks = np.arange(len(classes))
+    plt.xticks(tick_marks, classes, rotation=45)
+    plt.yticks(tick_marks, classes)
+
+    fmt = '.2f'
+    thresh = cm.max() / 2.
+    for i, j in itertools.product(range(cm.shape[0]), range(cm.shape[1])):
+        plt.text(j, i, format(cm[i, j], fmt),
+                 horizontalalignment="center",
+                 color="white" if cm[i, j] > thresh else "black")
+
+    plt.ylabel('True label')
+    plt.xlabel('Predicted label')
     save_fig("confusion_matrix_plot", tight_layout=False)
 
 def getLabel(label_binarizer, predictions):
@@ -123,6 +144,8 @@ def main():
     startTime = time.time()
     print("[INFO] loading images for training")
     data, labels = loadImages()
+
+    classes = set(labels)
 
     # Split data and labels between 4 arrays
     # 70% for training and 30% for testing
@@ -163,7 +186,7 @@ def main():
     print("[INFO] defining model")
     # Model definition
     model = modelDefinition(label_binarizer) # Try to make it better
-
+    
     # Decay -> Learning rate decay over each update
     # Momentum -> Parameter that accelerates SGD in the relevant direction and dampens oscillations
     # nesterov -> Whether to apply nesterov momentum
@@ -176,7 +199,7 @@ def main():
     print("[INFO] training neural network")
     #fit_model = model.fit(X_train, y_train, validation_data=(X_test, y_test), epochs=EPOCHS )
     fit_model = model.fit_generator(train_datagen.flow(X_train, y_train, batch_size=32), validation_data=val_datagen.flow(X_test, y_test, batch_size=32), validation_steps=len(X_test)/32, steps_per_epoch=len(X_train) / 32, epochs=EPOCHS, callbacks=[callback])
-
+    
     # Model evaluation
     print("[INFO] evaluating network")
     predictions = model.predict( X_test )
@@ -195,7 +218,7 @@ def main():
 
     # Generating confusion matrix
     confusion = confusion_matrix(y_test_confusion, y_pred_confusion)
-    plot_confusion_matrix(confusion)
+    plot_confusion_matrix(confusion, classes)
 
     # Dumping binarized labels into a .bin file
     file = open( OUTPUT_BIN, "wb" )
